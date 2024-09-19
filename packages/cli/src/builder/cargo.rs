@@ -161,6 +161,15 @@ impl BuildRequest {
 
         let assets = self.collect_assets(cargo_args, progress).await?;
 
+        _ = progress.start_send(UpdateBuildProgress {
+            stage: Stage::OptimizingAssets,
+            update: UpdateStage::AddMessage(super::BuildMessage {
+                level: tracing::Level::INFO,
+                message: super::MessageType::Text("Collected assets".to_string()),
+                source: super::MessageSource::Build,
+            }),
+        });
+
         let file_name = self.dioxus_crate.executable_name();
 
         // Move the final output executable into the dist folder
@@ -177,8 +186,26 @@ impl BuildRequest {
         if let Some(res_path) = &cargo_build_result.output_location {
             std::fs::copy(res_path, &output_path)?;
         }
+        _ = progress.start_send(UpdateBuildProgress {
+            stage: Stage::OptimizingAssets,
+            update: UpdateStage::AddMessage(super::BuildMessage {
+                level: tracing::Level::INFO,
+                message: super::MessageType::Text(
+                    "Copied final executable to output folder".to_string(),
+                ),
+                source: super::MessageSource::Build,
+            }),
+        });
 
         self.copy_assets_dir()?;
+        _ = progress.start_send(UpdateBuildProgress {
+            stage: Stage::OptimizingAssets,
+            update: UpdateStage::AddMessage(super::BuildMessage {
+                level: tracing::Level::INFO,
+                message: super::MessageType::Text("Copied assets".to_string()),
+                source: super::MessageSource::Build,
+            }),
+        });
 
         // Create the build result
         let build_result = BuildResult {
@@ -190,6 +217,14 @@ impl BuildRequest {
         if self.targeting_web() {
             self.post_process_web_build(&build_result, assets.as_ref(), progress)
                 .await?;
+            _ = progress.start_send(UpdateBuildProgress {
+                stage: Stage::OptimizingAssets,
+                update: UpdateStage::AddMessage(super::BuildMessage {
+                    level: tracing::Level::INFO,
+                    message: super::MessageType::Text("Post processed web assets".to_string()),
+                    source: super::MessageSource::Build,
+                }),
+            });
         }
 
         Ok(build_result)
@@ -222,11 +257,38 @@ impl BuildRequest {
                 cargo_args,
                 Some(linker_args),
             )?;
+
+            _ = progress.start_send(UpdateBuildProgress {
+                stage: Stage::OptimizingAssets,
+                update: UpdateStage::AddMessage(super::BuildMessage {
+                    level: tracing::Level::INFO,
+                    message: super::MessageType::Text(
+                        "Started manganis linker interceptor".to_string(),
+                    ),
+                    source: super::MessageSource::Build,
+                }),
+            });
             let assets = asset_manifest(&build);
             // Collect assets from the asset manifest the linker intercept created
             process_assets(&build, &assets, &mut progress)?;
+            _ = progress.start_send(UpdateBuildProgress {
+                stage: Stage::OptimizingAssets,
+                update: UpdateStage::AddMessage(super::BuildMessage {
+                    level: tracing::Level::INFO,
+                    message: super::MessageType::Text("Processed manganis assets".to_string()),
+                    source: super::MessageSource::Build,
+                }),
+            });
             // Create the __assets_head.html file for bundling
             create_assets_head(&build, &assets)?;
+            _ = progress.start_send(UpdateBuildProgress {
+                stage: Stage::OptimizingAssets,
+                update: UpdateStage::AddMessage(super::BuildMessage {
+                    level: tracing::Level::INFO,
+                    message: super::MessageType::Text("Created _assets_head.html".to_string()),
+                    source: super::MessageSource::Build,
+                }),
+            });
 
             Ok(Some(assets))
         })
