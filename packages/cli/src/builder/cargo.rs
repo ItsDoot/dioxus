@@ -252,6 +252,17 @@ impl BuildRequest {
         let build = self.clone();
         let mut progress = progress.clone();
         tokio::task::spawn_blocking(move || {
+            _ = progress.start_send(UpdateBuildProgress {
+                stage: Stage::OptimizingAssets,
+                update: UpdateStage::AddMessage(super::BuildMessage {
+                    level: tracing::Level::INFO,
+                    message: super::MessageType::Text(
+                        "Starting manganis linker interceptor".to_string(),
+                    ),
+                    source: super::MessageSource::Build,
+                }),
+            });
+
             manganis_cli_support::start_linker_intercept(
                 &LinkCommand::command_name(),
                 cargo_args,
